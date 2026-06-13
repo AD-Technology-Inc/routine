@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('tasks', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('goal_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('parent_task_id')->nullable()->constrained('tasks')->nullOnDelete();
+            $table->string('title');
+            $table->unsignedSmallInteger('estimated_minutes')->default(60);
+            $table->unsignedSmallInteger('actual_minutes')->nullable();
+            $table->unsignedSmallInteger('order_index')->default(0);
+            $table->enum('status', ['pending', 'in_progress', 'completed', 'skipped', 'archived'])->default('pending');
+            $table->date('due_date')->nullable()->comment('Soft hint only — not a calendar anchor');
+            $table->timestamps();
+
+            $table->index(['goal_id', 'status']);
+            $table->index(['goal_id', 'order_index']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('tasks');
+    }
+};
