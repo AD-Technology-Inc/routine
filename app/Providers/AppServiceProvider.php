@@ -8,6 +8,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
+use App\Events\TaskCompleted;
+use App\Events\TaskSkipped;
+use App\Events\ScheduleGenerated;
+use App\Listeners\OnTaskCompleted;
+use App\Listeners\OnTaskSkipped;
+use App\Listeners\OnScheduleGenerated;
+use Illuminate\Support\Facades\Event;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -24,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Event::listen(TaskCompleted::class, OnTaskCompleted::class);
+        Event::listen(TaskSkipped::class, OnTaskSkipped::class);
+        Event::listen(ScheduleGenerated::class, OnScheduleGenerated::class);
     }
 
     /**

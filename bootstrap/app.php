@@ -24,10 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withEvents([
-        TaskCompleted::class => [OnTaskCompleted::class],
-        TaskSkipped::class => [OnTaskSkipped::class],
-    ])
+
     ->withSchedule(function (Schedule $schedule): void {
         // Daily at 00:01: generate routine instances for all users
         $schedule->call(function (): void {
