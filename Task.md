@@ -48,11 +48,11 @@
 
 ## Phase 7 — Vue Frontend: Layout + Dashboard + Goal Workspace
 
-- [ ] AppLayout redesign (dark sidebar + top bar)
-- [ ] Dashboard.vue
-- [ ] goals/Show.vue (3-column workspace)
-- [ ] GoalCard.vue, TaskItem.vue, TaskAttributeForm.vue components
-- [ ] Pinia stores: useGoalStore, useScheduleStore
+- [/] AppLayout redesign (dark sidebar + top bar)
+- [/] Dashboard.vue
+- [/] goals/Show.vue (3-column workspace)
+- [/] GoalCard.vue, TaskItem.vue, TaskAttributeForm.vue components
+- [/] Pinia stores: useGoalStore, useScheduleStore
 
 ## Phase 8 — Vue Frontend: Task Board + Routine View + Analytics + AI Chat
 
