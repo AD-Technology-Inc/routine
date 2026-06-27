@@ -5,8 +5,10 @@ import { Target, CalendarDays, TrendingUp, Zap, RefreshCw, Plus } from '@lucide/
 import { dashboard } from '@/routes';
 import { useGoalStore } from '@/stores/useGoalStore';
 import { useScheduleStore } from '@/stores/useScheduleStore';
+import { useAnalyticsStore } from '@/stores/useAnalyticsStore';
 import GoalCard from '@/components/GoalCard.vue';
 import ScheduledSlotCard from '@/components/ScheduledSlotCard.vue';
+import MomentumAlert from '@/components/MomentumAlert.vue';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -23,6 +25,7 @@ defineOptions({
 
 const goalStore = useGoalStore();
 const scheduleStore = useScheduleStore();
+const analyticsStore = useAnalyticsStore();
 
 const activeGoals = computed(() =>
     goalStore.goals.value.filter((g) => g.status === 'active'),
@@ -70,14 +73,21 @@ const handleDeleteGoal = async (id: number) => {
 };
 
 const refreshSchedule = async () => {
-    await scheduleStore.fetchTodayPlan();
+    await Promise.all([
+        scheduleStore.fetchTodayPlan(),
+        analyticsStore.fetchAdaptations()
+    ]);
 };
 
 // Poll today's schedule every 30s
 usePoll(30_000, { only: [] });
 
 onMounted(async () => {
-    await Promise.all([goalStore.fetchGoals(), scheduleStore.fetchTodayPlan()]);
+    await Promise.all([
+        goalStore.fetchGoals(),
+        scheduleStore.fetchTodayPlan(),
+        analyticsStore.fetchAdaptations()
+    ]);
 });
 </script>
 
@@ -104,6 +114,8 @@ onMounted(async () => {
                 </Button>
             </div>
         </div>
+
+        <MomentumAlert :adaptations="analyticsStore.adaptations.value" />
 
         <!-- Stats row -->
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,15 +1,18 @@
 <?php
 
+use App\Models\Goal;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
-    Route::get('goals/{goal}', function (\App\Models\Goal $goal) {
+    Route::inertia('goals', 'goals/Index')->name('goals.index');
+    Route::get('goals/{goal}', function (Goal $goal) {
         if ($goal->user_id !== auth()->id()) {
             abort(403);
         }
+
         return inertia('goals/Show', [
             'goalId' => $goal->id,
         ]);

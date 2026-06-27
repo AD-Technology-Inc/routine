@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import { BarChart3, TrendingUp, Zap, Calendar } from '@lucide/vue';
 import { dashboard } from '@/routes';
 import { useAnalyticsStore } from '@/stores/useAnalyticsStore';
+import EnergyHeatmap from '@/components/EnergyHeatmap.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
@@ -35,35 +36,12 @@ const totalScheduled = computed(() =>
     analyticsStore.snapshots.value.reduce((sum, s) => sum + s.total_tasks_scheduled, 0),
 );
 
-// Weekday heatmap sorted
-const weekdayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const heatmapRows = computed(() =>
-    weekdayOrder.map((day) => ({
-        day,
-        rate: analyticsStore.heatmap.value[day] ?? 0,
-    })),
-);
-
-const maxHeatmapRate = computed(() =>
-    Math.max(...heatmapRows.value.map((r) => r.rate), 1),
-);
-
 const energyRows = computed(() =>
     Object.entries(analyticsStore.energyPerformance.value).map(([level, rate]) => ({
         level,
         rate: Number(rate),
     })),
 );
-
-const heatmapColor = (rate: number, max: number) => {
-    const pct = max > 0 ? rate / max : 0;
-    if (pct >= 0.8) return 'bg-emerald-500';
-    if (pct >= 0.6) return 'bg-emerald-400/80';
-    if (pct >= 0.4) return 'bg-amber-400/80';
-    if (pct >= 0.2) return 'bg-orange-400/60';
-    return 'bg-muted';
-};
 
 // Last 14 days for bar chart
 const recentSnaps = computed(() => analyticsStore.snapshots.value.slice(-14));
@@ -193,35 +171,10 @@ onMounted(() => analyticsStore.fetchAll(selectedDays.value));
             </div>
 
             <!-- Weekday Heatmap -->
-            <div class="rounded-xl border border-border/60 bg-card p-5">
-                <h2 class="mb-4 text-sm font-semibold">Completion by Weekday</h2>
-
-                <template v-if="analyticsStore.isLoading.value">
-                    <div class="space-y-2">
-                        <Skeleton v-for="i in 7" :key="i" class="h-8 w-full rounded" />
-                    </div>
-                </template>
-
-                <div v-else class="space-y-2">
-                    <div
-                        v-for="row in heatmapRows"
-                        :key="row.day"
-                        class="flex items-center gap-3"
-                    >
-                        <span class="w-24 shrink-0 text-sm text-muted-foreground">{{ row.day }}</span>
-                        <div class="flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                                class="h-5 rounded-full transition-all duration-700"
-                                :class="heatmapColor(row.rate, maxHeatmapRate)"
-                                :style="{ width: (row.rate / maxHeatmapRate) * 100 + '%' }"
-                            />
-                        </div>
-                        <span class="w-12 shrink-0 text-right text-sm font-medium">
-                            {{ row.rate.toFixed(0) }}%
-                        </span>
-                    </div>
-                </div>
-            </div>
+            <EnergyHeatmap
+                :data="analyticsStore.heatmap.value"
+                :is-loading="analyticsStore.isLoading.value"
+            />
 
             <!-- Energy Performance -->
             <div class="rounded-xl border border-border/60 bg-card p-5 lg:col-span-2">

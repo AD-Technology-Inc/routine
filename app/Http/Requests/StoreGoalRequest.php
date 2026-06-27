@@ -15,11 +15,11 @@ class StoreGoalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max' => 255],
+            'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:active,paused,completed,archived'],
             'target_date' => ['nullable', 'date'],
-            'color' => ['nullable', 'string', 'max' => 7],
+            'color' => ['nullable', 'string', 'max:7'],
             'order_index' => ['nullable', 'integer'],
         ];
     }

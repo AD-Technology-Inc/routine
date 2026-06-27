@@ -56,12 +56,12 @@
 
 ## Phase 8 — Vue Frontend: Task Board + Routine View + Analytics + AI Chat
 
-- [ ] tasks/Board.vue (kanban)
-- [ ] routines/Index.vue
-- [ ] analytics/Index.vue
-- [ ] ai/Chat.vue
-- [ ] Remaining components: ScheduledSlot, RoutineStepItem, MomentumAlert, EnergyHeatmap, AIChat
-- [ ] Pinia stores: useRoutineStore, useAnalyticsStore, useAIStore
+- [/] tasks/Board.vue (kanban)
+- [/] routines/Index.vue
+- [/] analytics/Index.vue
+- [/] ai/Chat.vue
+- [/] Remaining components: ScheduledSlot, RoutineStepItem, MomentumAlert, EnergyHeatmap, AIChat
+- [/] Pinia stores: useRoutineStore, useAnalyticsStore, useAIStore
 
 ## Phase 9 — Wayfinder + Pint + Final Polish
 

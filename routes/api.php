@@ -51,4 +51,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('analytics/summary', [AnalyticsController::class, 'summary'])->name('analytics.summary');
     Route::get('analytics/heatmap', [AnalyticsController::class, 'heatmap'])->name('analytics.heatmap');
     Route::get('analytics/energy', [AnalyticsController::class, 'energyPerformance'])->name('analytics.energy');
+    Route::get('analytics/adaptations', [AnalyticsController::class, 'adaptations'])->name('analytics.adaptations');
 });

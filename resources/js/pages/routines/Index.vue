@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
-import { CalendarCheck2, CheckCircle2, Circle, SkipForward, Clock } from '@lucide/vue';
+import { CalendarCheck2, SkipForward } from '@lucide/vue';
 import { dashboard } from '@/routes';
 import { useRoutineStore } from '@/stores/useRoutineStore';
+import RoutineStepItem from '@/components/RoutineStepItem.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -81,11 +82,11 @@ onMounted(() => routineStore.fetchTodayInstances());
 
         <div
             v-else-if="!routineStore.todayInstances.value.length"
-            class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center"
+            class="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center animate-fade-in"
         >
-            <CalendarCheck2 class="mb-3 h-12 w-12 text-muted-foreground/40" />
-            <p class="font-semibold">No routines for today</p>
-            <p class="mt-1 text-sm text-muted-foreground">
+            <CalendarCheck2 class="mb-3 h-12 w-12 text-muted-foreground/40 animate-pulse" />
+            <p class="font-semibold text-lg">No routines for today</p>
+            <p class="mt-1 text-sm text-muted-foreground max-w-sm">
                 Routines are generated automatically based on their frequency.
             </p>
         </div>
@@ -94,13 +95,13 @@ onMounted(() => routineStore.fetchTodayInstances());
             <div
                 v-for="instance in routineStore.todayInstances.value"
                 :key="instance.id"
-                class="overflow-hidden rounded-xl border border-border/70 bg-card"
+                class="overflow-hidden rounded-xl border border-border/70 bg-card transition-all hover:shadow-md"
                 :class="{ 'opacity-60': instance.status === 'skipped' }"
             >
                 <!-- Routine Header -->
                 <div class="flex items-center justify-between border-b border-border/50 px-5 py-3">
                     <div class="flex items-center gap-3">
-                        <h3 class="font-semibold">
+                        <h3 class="font-semibold text-sm">
                             {{ instance.routine?.title ?? 'Routine' }}
                         </h3>
                         <Badge :variant="statusVariant(instance.status)" class="capitalize">
@@ -110,14 +111,14 @@ onMounted(() => routineStore.fetchTodayInstances());
 
                     <div class="flex items-center gap-2">
                         <!-- Progress -->
-                        <span class="text-xs text-muted-foreground">
+                        <span class="text-xs text-muted-foreground font-medium">
                             {{ instanceProgress(instance).completed }}/{{ instanceProgress(instance).total }}
                         </span>
                         <Button
                             v-if="instance.status !== 'skipped' && instance.status !== 'completed'"
                             variant="ghost"
-                            size="sm"
-                            class="text-muted-foreground"
+                            size="icon"
+                            class="text-muted-foreground h-8 w-8 hover:text-foreground"
                             @click="handleSkipInstance(instance.id)"
                         >
                             <SkipForward class="h-4 w-4" />
@@ -135,37 +136,14 @@ onMounted(() => routineStore.fetchTodayInstances());
 
                 <!-- Steps -->
                 <div class="divide-y divide-border/40">
-                    <div
+                    <RoutineStepItem
                         v-for="step in instance.routine?.steps ?? []"
                         :key="step.id"
-                        class="flex items-center gap-3 px-5 py-3"
-                    >
-                        <button
-                            v-if="!isStepCompleted(instance, step.id)"
-                            class="shrink-0 text-muted-foreground transition-colors hover:text-primary"
-                            :aria-label="`Complete step: ${step.title}`"
-                            :disabled="instance.status === 'skipped'"
-                            @click="handleCompleteStep(instance.id, step.id)"
-                        >
-                            <Circle class="h-5 w-5" />
-                        </button>
-                        <CheckCircle2
-                            v-else
-                            class="h-5 w-5 shrink-0 text-emerald-500"
-                        />
-
-                        <span
-                            class="flex-1 text-sm"
-                            :class="{ 'line-through text-muted-foreground': isStepCompleted(instance, step.id) }"
-                        >
-                            {{ step.title }}
-                        </span>
-
-                        <span class="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock class="h-3.5 w-3.5" />
-                            {{ step.estimated_minutes }}m
-                        </span>
-                    </div>
+                        :step="step"
+                        :is-completed="isStepCompleted(instance, step.id)"
+                        :disabled="instance.status === 'skipped'"
+                        @complete="(stepId) => handleCompleteStep(instance.id, stepId)"
+                    />
                 </div>
             </div>
         </div>

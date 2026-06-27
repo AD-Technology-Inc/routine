@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\AnalyticsService;
+use App\Services\MomentumService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -11,6 +12,7 @@ class AnalyticsController extends Controller
 {
     public function __construct(
         protected readonly AnalyticsService $analyticsService,
+        protected readonly MomentumService $momentumService,
     ) {}
 
     public function summary(Request $request): JsonResponse
@@ -33,5 +35,12 @@ class AnalyticsController extends Controller
         $performance = $this->analyticsService->getEnergyPerformance($request->user());
 
         return response()->json($performance);
+    }
+
+    public function adaptations(Request $request): JsonResponse
+    {
+        $adaptations = $this->momentumService->generateAdaptations($request->user());
+
+        return response()->json($adaptations);
     }
 }

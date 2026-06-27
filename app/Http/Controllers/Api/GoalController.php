@@ -8,8 +8,8 @@ use App\Http\Requests\UpdateGoalRequest;
 use App\Http\Resources\GoalResource;
 use App\Models\Goal;
 use App\Services\GoalService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 
 class GoalController extends Controller
@@ -18,11 +18,12 @@ class GoalController extends Controller
         protected readonly GoalService $goalService,
     ) {}
 
-    public function index(Request $request): AnonymousResourceCollection
+    
+    public function index(Request $request): JsonResponse
     {
         $goals = $this->goalService->getGoalsForUser($request->user());
 
-        return GoalResource::collection($goals);
+        return GoalResource::collection($goals)->response();
     }
 
     public function store(StoreGoalRequest $request): GoalResource

@@ -3,9 +3,16 @@ import { apiRequest } from '@/lib/api';
 import AnalyticsController from '@/actions/App/Http/Controllers/Api/AnalyticsController';
 import type { AnalyticsSnapshot } from '@/types';
 
+export interface Adaptation {
+    type: string;
+    message: string;
+    action: string;
+}
+
 const snapshots = ref<AnalyticsSnapshot[]>([]);
 const heatmap = ref<Record<string, number>>({});
 const energyPerformance = ref<Record<string, number>>({});
+const adaptations = ref<Adaptation[]>([]);
 const isLoading = ref(false);
 
 export function useAnalyticsStore() {
@@ -40,18 +47,35 @@ export function useAnalyticsStore() {
         }
     };
 
+    const fetchAdaptations = async () => {
+        try {
+            adaptations.value = await apiRequest<Adaptation[]>(
+                AnalyticsController.adaptations(),
+            );
+        } catch (error) {
+            console.error('Failed to fetch adaptations:', error);
+        }
+    };
+
     const fetchAll = async (days: number = 30) => {
-        await Promise.all([fetchSummary(days), fetchHeatmap(), fetchEnergyPerformance()]);
+        await Promise.all([
+            fetchSummary(days),
+            fetchHeatmap(),
+            fetchEnergyPerformance(),
+            fetchAdaptations(),
+        ]);
     };
 
     return {
         snapshots,
         heatmap,
         energyPerformance,
+        adaptations,
         isLoading,
         fetchSummary,
         fetchHeatmap,
         fetchEnergyPerformance,
+        fetchAdaptations,
         fetchAll,
     };
 }

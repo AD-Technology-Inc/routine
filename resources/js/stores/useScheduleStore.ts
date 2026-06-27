@@ -2,21 +2,7 @@ import { ref } from 'vue';
 import { apiRequest } from '@/lib/api';
 import { today, window as fetchWindow } from '@/actions/App/Http/Controllers/Api/ScheduleController';
 import { complete, skip } from '@/actions/App/Http/Controllers/Api/TaskController';
-
-export interface ScheduledSlot {
-    id: number;
-    user_id: number;
-    task_id: number | null;
-    grouping_key: string | null;
-    date: string;
-    time_block: 'morning' | 'afternoon' | 'evening' | 'anytime';
-    allocated_minutes: number;
-    slot_index: number;
-    is_merged: boolean;
-    merged_task_ids: number[] | string | null;
-    status: 'pending' | 'completed' | 'skipped' | 'missed';
-    task?: any;
-}
+import type { ScheduledSlot } from '@/types';
 
 const todayPlan = ref<ScheduledSlot[]>([]);
 const windowPlan = ref<ScheduledSlot[]>([]);
@@ -54,10 +40,10 @@ export function useScheduleStore() {
                     if (slot.task_id === taskId) {
                         slot.status = 'completed';
                     } else if (slot.is_merged && slot.merged_task_ids) {
-                        const ids = typeof slot.merged_task_ids === 'string'
-                            ? JSON.parse(slot.merged_task_ids)
-                            : slot.merged_task_ids;
-                        if (Array.isArray(ids) && ids.includes(taskId)) {
+                        const ids = Array.isArray(slot.merged_task_ids)
+                            ? slot.merged_task_ids
+                            : [];
+                        if (ids.includes(taskId)) {
                             // Check if other merged tasks are also done (stub status update)
                             slot.status = 'completed';
                         }

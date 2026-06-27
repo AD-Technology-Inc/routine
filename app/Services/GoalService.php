@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Goal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class GoalService
 {
@@ -13,7 +14,20 @@ class GoalService
      */
     public function createGoal(User $user, array $data): Goal
     {
-        return $user->goals()->create($data);
+        return DB::transaction(function() use ($user, $data) {
+            $goal = $user->goals()->create($data);
+            // proposed steps:
+            // 1. create goal
+            // 2. save Goal to DB
+            // 3. save Goal even AIPlanGoalJob to outbox
+            // 4. outbox -- async --> AIPlanGoalJob worker
+            // 5. generate Goal tasks
+
+            // issue: if AI fails??? async ??? sync??? AI slow!
+            // $goal->aiPlan();
+
+            return $goal;
+        });
     }
 
     /**

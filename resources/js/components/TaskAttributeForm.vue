@@ -128,11 +128,11 @@ watch(form, (val) => emit('update:modelValue', { ...val }), { deep: true });
         <!-- Booleans -->
         <div class="flex items-center gap-6 sm:col-span-2">
             <div class="flex items-center gap-2">
-                <Checkbox id="attr-can-split" v-model:checked="form.can_split" />
+                <Checkbox id="attr-can-split" :checked="!!form.can_split" @update:checked="(val) => form.can_split = !!val" />
                 <Label for="attr-can-split" class="cursor-pointer text-sm">Can Split</Label>
             </div>
             <div class="flex items-center gap-2">
-                <Checkbox id="attr-can-merge" v-model:checked="form.can_merge" />
+                <Checkbox id="attr-can-merge" :checked="!!form.can_merge" @update:checked="(val) => form.can_merge = !!val" />
                 <Label for="attr-can-merge" class="cursor-pointer text-sm">Can Merge</Label>
             </div>
         </div>
