@@ -9,18 +9,7 @@ import {
 } from '@/actions/App/Http/Controllers/Api/GoalController';
 import { planGoal } from '@/actions/App/Http/Controllers/Api/AIPlannerController';
 import { generate } from '@/actions/App/Http/Controllers/Api/ScheduleController';
-
-export interface Goal {
-    id: number;
-    title: string;
-    description: string | null;
-    status: 'active' | 'paused' | 'completed' | 'archived';
-    target_date: string | null;
-    color: string | null;
-    order_index: number;
-    tasks?: any[];
-    routines?: any[];
-}
+import type { Goal } from '@/types';
 
 const goals = ref<Goal[]>([]);
 const activeGoal = ref<Goal | null>(null);

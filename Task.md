@@ -32,9 +32,9 @@
 
 ## Phase 5 — Events + Jobs + Cron
 
-- [ ] Events: GoalCreated, TaskCompleted, TaskSkipped, ScheduleGenerated, RoutineInstanceCreated
-- [ ] Listeners: OnTaskCompleted, OnTaskSkipped, OnScheduleGenerated
-- [ ] Jobs: GenerateUserScheduleJob, GenerateRoutineInstancesJob, ComputeAnalyticsSnapshotJob, AIPlanGoalJob, AIReviewWeekJob
+- [/] Events: GoalCreated, TaskCompleted, TaskSkipped, ScheduleGenerated, RoutineInstanceCreated
+- [/] Listeners: OnTaskCompleted, OnTaskSkipped, OnScheduleGenerated
+- [/] Jobs: GenerateUserScheduleJob, GenerateRoutineInstancesJob, ComputeAnalyticsSnapshotJob, AIPlanGoalJob, AIReviewWeekJob
 - [/] Console scheduling (cron entries)
 
 ## Phase 6 — HTTP Layer
@@ -60,17 +60,17 @@
 - [/] routines/Index.vue
 - [/] analytics/Index.vue
 - [/] ai/Chat.vue
-- [/] Remaining components: ScheduledSlot, RoutineStepItem, MomentumAlert, EnergyHeatmap, AIChat
+- [/] Remaining components: ScheduledSlotCard, RoutineStepItem, MomentumAlert, EnergyHeatmap
 - [/] Pinia stores: useRoutineStore, useAnalyticsStore, useAIStore
 
 ## Phase 9 — Wayfinder + Pint + Final Polish
 
-- [ ] Run wayfinder:generate
-- [ ] Run vendor/bin/pint --dirty
-- [ ] Fix TypeScript types/errors
-- [ ] npm run build verify
+- [/] Run wayfinder:generate
+- [/] Run vendor/bin/pint --dirty
+- [/] Fix TypeScript types/errors
+- [/] npm run build verify
 
-## Phase 10 — Tests
+## Phase 10 — Tests (skipped per user instruction)
 
 - [ ] GoalServiceTest, TaskServiceTest
 - [ ] DependencyServiceTest, GroupingServiceTest
