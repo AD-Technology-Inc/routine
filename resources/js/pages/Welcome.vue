@@ -1,443 +1,657 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { dashboard, login } from '@/routes';
-import { register } from '@/routes';
+import { dashboard, login, register } from '@/routes';
+import { ref, computed } from 'vue';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
+
+// Simulator state
+const selectedCapacity = ref(240);
+const simulatorTasks = [
+    { id: 1, title: 'Topological Dependency Sorting', duration: 90, priority: 'critical', energy: 'high', dependsOn: null },
+    { id: 2, title: 'Database Index Optimization', duration: 60, priority: 'high', energy: 'high', dependsOn: 1 },
+    { id: 3, title: 'Pest Unit Testing: GroupingService', duration: 45, priority: 'medium', energy: 'medium', dependsOn: null },
+    { id: 4, title: 'Inertia v3 CSR Form Refactor', duration: 30, priority: 'medium', energy: 'low', dependsOn: null },
+    { id: 5, title: 'Update OpenAPI Specs', duration: 60, priority: 'low', energy: 'low', dependsOn: null },
+    { id: 6, title: 'Write Engineering Architecture Notes', duration: 120, priority: 'low', energy: 'medium', dependsOn: null },
+];
+
+const scheduledTasks = computed(() => {
+    let capacityLeft = selectedCapacity.value;
+    const results = [];
+    const sorted = [...simulatorTasks].sort((a, b) => {
+        const priorityWeight = { critical: 4, high: 3, medium: 2, low: 1 };
+        return priorityWeight[b.priority] - priorityWeight[a.priority];
+    });
+
+    const scheduledIds = new Set<number>();
+
+    for (const task of sorted) {
+        if (task.dependsOn && !scheduledIds.has(task.dependsOn)) {
+            results.push({
+                ...task,
+                status: 'blocked',
+                reason: 'Prerequisite task is deferred',
+                allocatedMinutes: 0
+            });
+            continue;
+        }
+
+        if (capacityLeft <= 0) {
+            results.push({
+                ...task,
+                status: 'deferred',
+                reason: 'Exceeds daily capacity limit',
+                allocatedMinutes: 0
+            });
+            continue;
+        }
+
+        if (task.duration <= capacityLeft) {
+            capacityLeft -= task.duration;
+            scheduledIds.add(task.id);
+            results.push({
+                ...task,
+                status: 'scheduled',
+                allocatedMinutes: task.duration
+            });
+        } else {
+            const fill = capacityLeft;
+            capacityLeft = 0;
+            scheduledIds.add(task.id);
+            results.push({
+                ...task,
+                status: 'split',
+                allocatedMinutes: fill,
+                reason: `Split: ${fill}m scheduled, ${task.duration - fill}m deferred`
+            });
+        }
+    }
+    return results;
+});
+
+const totalAllocated = computed(() => {
+    return scheduledTasks.value.reduce((sum, t) => sum + t.allocatedMinutes, 0);
+});
+
+const capacityPercentage = computed(() => {
+    return Math.round((totalAllocated.value / selectedCapacity.value) * 100);
+});
+
+// FAQ state
+const faqItems = ref([
+    {
+        question: "How does the scheduling engine differ from a standard calendar?",
+        answer: "Standard calendars force you to anchor tasks to arbitrary times, leading to schedule debt when tasks overrun. GoalOS uses a rolling-window capacity packer. It evaluates your available minutes, task priorities, energy requirements, and dependencies, then packs tasks dynamically into flexible morning, afternoon, or evening blocks."
+    },
+    {
+        question: "What is topological dependency sorting?",
+        answer: "It is a mathematical ordering of tasks based on their dependencies. Using Kahn's algorithm, the system guarantees that if Task B depends on Task A, Task B will never be scheduled until Task A is marked as completed, preventing blockages in your execution plan."
+    },
+    {
+        question: "How are routines generated asynchronously?",
+        answer: "Routines are defined with frequency rules (e.g. weekdays, weekends). A daily Cron job dispatches GenerateRoutineInstancesJob, which evaluates routine schedules and generates daily instances idempotently in the background, minimizing latency for the active user."
+    },
+    {
+        question: "How does the system ensure reliability and isolation?",
+        answer: "All heavy recalculations, AI roadmap generation, and weekly review compilations are executed asynchronously via Laravel Queue Workers. If external LLM APIs fail, the jobs retry with exponential backoff, and the main system remains fully functional using local database fallbacks."
+    }
+]);
+
+const openFaqIndex = ref<number | null>(null);
+const toggleFaq = (index: number) => {
+    openFaqIndex.value = openFaqIndex.value === index ? null : index;
+};
+
+const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+    }
+};
 </script>
 
 <template>
-    <Head title="Welcome">
-        <link rel="preconnect" href="https://rsms.me/" />
-        <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
-    </Head>
-    <div
-        class="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center lg:p-8 dark:bg-[#0a0a0a]"
-    >
-        <header
-            class="mb-6 w-full max-w-[335px] text-sm not-has-[nav]:hidden lg:max-w-4xl"
-        >
-            <nav class="flex items-center justify-end gap-4">
-                <Link
-                    v-if="$page.props.auth.user"
-                    :href="dashboard()"
-                    class="inline-block rounded-sm border border-[#19140035] px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#1915014a] dark:border-[#3E3E3A] dark:text-[#EDEDEC] dark:hover:border-[#62605b]"
-                >
-                    Dashboard
-                </Link>
-                <template v-else>
+    <div class="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+        <Head title="GoalOS - Adaptive AI Goal & Routine Operating System">
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true" />
+            <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+        </Head>
+
+        <!-- Navigation -->
+        <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-slate-50/80 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-950/80">
+            <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+                <div class="flex items-center gap-2">
+                    <AppLogoIcon class="size-6 text-teal-600 dark:text-teal-400" />
+                    <span class="font-sans text-lg font-bold tracking-tight text-slate-900 dark:text-white">AD. Routine <span class="text-xs font-normal text-slate-500 dark:text-slate-400">GoalOS</span></span>
+                </div>
+                <nav class="hidden items-center gap-8 md:flex">
+                    <button @click="scrollToSection('architecture')" class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">Architecture</button>
+                    <button @click="scrollToSection('guarantees')" class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">Guarantees</button>
+                    <button @click="scrollToSection('deep-dive')" class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">Deep Dive</button>
+                    <button @click="scrollToSection('faq')" class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">FAQ</button>
+                </nav>
+                <div class="flex items-center gap-4">
                     <Link
-                        :href="login()"
-                        class="inline-block rounded-sm border border-transparent px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#19140035] dark:text-[#EDEDEC] dark:hover:border-[#3E3E3A]"
+                        v-if="$page.props.auth.user"
+                        :href="dashboard()"
+                        class="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400"
                     >
-                        Log in
+                        Go to Dashboard
                     </Link>
-                    <Link
-                        :href="register()"
-                        class="inline-block rounded-sm border border-[#19140035] px-5 py-1.5 text-sm leading-normal text-[#1b1b18] hover:border-[#1915014a] dark:border-[#3E3E3A] dark:text-[#EDEDEC] dark:hover:border-[#62605b]"
-                    >
-                        Register
-                    </Link>
-                </template>
-            </nav>
+                    <template v-else>
+                        <Link
+                            :href="login()"
+                            class="text-sm font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                        >
+                            Log in
+                        </Link>
+                        <Link
+                            :href="register()"
+                            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                        >
+                            Register
+                        </Link>
+                    </template>
+                </div>
+            </div>
         </header>
-        <div
-            class="flex w-full items-center justify-center opacity-100 transition-opacity duration-750 lg:grow starting:opacity-0"
-        >
-            <main
-                class="flex w-full max-w-[335px] flex-col-reverse overflow-hidden rounded-lg lg:max-w-4xl lg:flex-row"
-            >
-                <div
-                    class="flex-1 rounded-br-lg rounded-bl-lg bg-white p-6 pb-12 text-[13px] leading-[20px] shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] lg:rounded-tl-lg lg:rounded-br-none lg:p-20 dark:bg-[#161615] dark:text-[#EDEDEC] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
-                >
-                    <h1 class="mb-1 font-medium">Let's get started</h1>
-                    <p class="mb-2 text-[#706f6c] dark:text-[#A1A09A]">
-                        Laravel has an incredibly rich ecosystem. <br />We
-                        suggest starting with the following.
-                    </p>
-                    <ul class="mb-4 flex flex-col lg:mb-6">
-                        <li
-                            class="relative flex items-center gap-4 py-2 before:absolute before:top-1/2 before:bottom-0 before:left-[0.4rem] before:border-l before:border-[#e3e3e0] dark:before:border-[#3E3E3A]"
-                        >
-                            <span
-                                class="relative bg-white py-1 dark:bg-[#161615]"
-                            >
-                                <span
-                                    class="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#e3e3e0] bg-[#FDFDFC] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)] dark:border-[#3E3E3A] dark:bg-[#161615]"
-                                >
-                                    <span
-                                        class="h-1.5 w-1.5 rounded-full bg-[#dbdbd7] dark:bg-[#3E3E3A]"
-                                    />
-                                </span>
-                            </span>
-                            <span>
-                                Read the
-                                <a
-                                    href="https://laravel.com/docs"
-                                    target="_blank"
-                                    class="ml-1 inline-flex items-center space-x-1 font-medium text-[#f53003] underline underline-offset-4 dark:text-[#FF4433]"
-                                >
-                                    <span>Documentation</span>
-                                    <svg
-                                        width="10"
-                                        height="11"
-                                        viewBox="0 0 10 11"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-2.5 w-2.5"
-                                    >
-                                        <path
-                                            d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001"
-                                            stroke="currentColor"
-                                            stroke-linecap="square"
-                                        />
-                                    </svg>
-                                </a>
-                            </span>
-                        </li>
-                        <li
-                            class="relative flex items-center gap-4 py-2 before:absolute before:top-0 before:bottom-1/2 before:left-[0.4rem] before:border-l before:border-[#e3e3e0] dark:before:border-[#3E3E3A]"
-                        >
-                            <span
-                                class="relative bg-white py-1 dark:bg-[#161615]"
-                            >
-                                <span
-                                    class="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#e3e3e0] bg-[#FDFDFC] shadow-[0px_0px_1px_0px_rgba(0,0,0,0.03),0px_1px_2px_0px_rgba(0,0,0,0.06)] dark:border-[#3E3E3A] dark:bg-[#161615]"
-                                >
-                                    <span
-                                        class="h-1.5 w-1.5 rounded-full bg-[#dbdbd7] dark:bg-[#3E3E3A]"
-                                    />
-                                </span>
-                            </span>
-                            <span>
-                                Watch video tutorials at
-                                <a
-                                    href="https://laracasts.com"
-                                    target="_blank"
-                                    class="ml-1 inline-flex items-center space-x-1 font-medium text-[#f53003] underline underline-offset-4 dark:text-[#FF4433]"
-                                >
-                                    <span>Laracasts</span>
-                                    <svg
-                                        width="10"
-                                        height="11"
-                                        viewBox="0 0 10 11"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-2.5 w-2.5"
-                                    >
-                                        <path
-                                            d="M7.70833 6.95834V2.79167H3.54167M2.5 8L7.5 3.00001"
-                                            stroke="currentColor"
-                                            stroke-linecap="square"
-                                        />
-                                    </svg>
-                                </a>
-                            </span>
-                        </li>
-                    </ul>
-                    <ul class="flex gap-3 text-sm leading-normal">
-                        <li>
-                            <a
-                                href="https://cloud.laravel.com"
-                                target="_blank"
-                                class="inline-block rounded-sm border border-black bg-[#1b1b18] px-5 py-1.5 text-sm leading-normal text-white hover:border-black hover:bg-black dark:border-[#eeeeec] dark:bg-[#eeeeec] dark:text-[#1C1C1A] dark:hover:border-white dark:hover:bg-white"
-                            >
-                                Deploy now
-                            </a>
-                        </li>
-                    </ul>
+
+        <main class="relative overflow-hidden">
+            <!-- Background Grid Pattern -->
+            <div class="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+
+            <!-- Hero Section -->
+            <section class="mx-auto max-w-7xl px-6 pt-20 pb-16 text-center lg:pt-32">
+                <div class="inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-semibold text-teal-600 dark:text-teal-400">
+                    <span class="relative flex h-2 w-2">
+                        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-400 opacity-75"></span>
+                        <span class="relative inline-flex h-2 w-2 rounded-full bg-teal-500"></span>
+                    </span>
+                    Now Powered by Deterministic Capacity Packing
                 </div>
-                <div
-                    class="relative -mb-px aspect-[335/364] w-full shrink-0 overflow-hidden rounded-t-lg bg-[#fff2f2] lg:mb-0 lg:-ml-px lg:aspect-auto lg:w-[438px] lg:rounded-t-none lg:rounded-r-lg dark:bg-[#1D0002]"
-                >
-                    <!-- Laravel Logo -->
-                    <svg
-                        class="w-full max-w-none translate-y-0 text-[#F53003] opacity-100 transition-all duration-750 dark:text-[#F61500] starting:opacity-0 motion-safe:starting:translate-y-6"
-                        viewBox="0 0 438 104"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
+                <h1 class="mx-auto mt-6 max-w-4xl font-sans text-4xl font-extrabold tracking-tight sm:text-6xl text-slate-900 dark:text-white">
+                    Goals are outcomes. <br />
+                    <span class="bg-gradient-to-r from-teal-600 to-indigo-600 bg-clip-text text-transparent dark:from-teal-400 dark:to-indigo-400">Schedules are decisions.</span>
+                </h1>
+                <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-600 dark:text-slate-400">
+                    GoalOS is a production-grade execution platform that combines deterministic packing algorithms, dependency graphing, and behavior analysis. It continuously compiles hierarchical goals into optimized, rolling daily schedules.
+                </p>
+                <div class="mt-10 flex flex-wrap justify-center gap-4">
+                    <Link
+                        v-if="!$page.props.auth.user"
+                        :href="register()"
+                        class="rounded-lg bg-teal-600 px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400"
                     >
-                        <path
-                            d="M17.2036 -3H0V102.197H49.5189V86.7187H17.2036V-3Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M110.256 41.6337C108.061 38.1275 104.945 35.3731 100.905 33.3681C96.8667 31.3647 92.8016 30.3618 88.7131 30.3618C83.4247 30.3618 78.5885 31.3389 74.201 33.2923C69.8111 35.2456 66.0474 37.928 62.9059 41.3333C59.7643 44.7401 57.3198 48.6726 55.5754 53.1293C53.8287 57.589 52.9572 62.274 52.9572 67.1813C52.9572 72.1925 53.8287 76.8995 55.5754 81.3069C57.3191 85.7173 59.7636 89.6241 62.9059 93.0293C66.0474 96.4361 69.8119 99.1155 74.201 101.069C78.5885 103.022 83.4247 103.999 88.7131 103.999C92.8016 103.999 96.8667 102.997 100.905 100.994C104.945 98.9911 108.061 96.2359 110.256 92.7282V102.195H126.563V32.1642H110.256V41.6337ZM108.76 75.7472C107.762 78.4531 106.366 80.8078 104.572 82.8112C102.776 84.8161 100.606 86.4183 98.0637 87.6206C95.5202 88.823 92.7004 89.4238 89.6103 89.4238C86.5178 89.4238 83.7252 88.823 81.2324 87.6206C78.7388 86.4183 76.5949 84.8161 74.7998 82.8112C73.004 80.8078 71.6319 78.4531 70.6856 75.7472C69.7356 73.0421 69.2644 70.1868 69.2644 67.1821C69.2644 64.1758 69.7356 61.3205 70.6856 58.6154C71.6319 55.9102 73.004 53.5571 74.7998 51.5522C76.5949 49.5495 78.738 47.9451 81.2324 46.7427C83.7252 45.5404 86.5178 44.9396 89.6103 44.9396C92.7012 44.9396 95.5202 45.5404 98.0637 46.7427C100.606 47.9451 102.776 49.5487 104.572 51.5522C106.367 53.5571 107.762 55.9102 108.76 58.6154C109.756 61.3205 110.256 64.1758 110.256 67.1821C110.256 70.1868 109.756 73.0421 108.76 75.7472Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M242.805 41.6337C240.611 38.1275 237.494 35.3731 233.455 33.3681C229.416 31.3647 225.351 30.3618 221.262 30.3618C215.974 30.3618 211.138 31.3389 206.75 33.2923C202.36 35.2456 198.597 37.928 195.455 41.3333C192.314 44.7401 189.869 48.6726 188.125 53.1293C186.378 57.589 185.507 62.274 185.507 67.1813C185.507 72.1925 186.378 76.8995 188.125 81.3069C189.868 85.7173 192.313 89.6241 195.455 93.0293C198.597 96.4361 202.361 99.1155 206.75 101.069C211.138 103.022 215.974 103.999 221.262 103.999C225.351 103.999 229.416 102.997 233.455 100.994C237.494 98.9911 240.611 96.2359 242.805 92.7282V102.195H259.112V32.1642H242.805V41.6337ZM241.31 75.7472C240.312 78.4531 238.916 80.8078 237.122 82.8112C235.326 84.8161 233.156 86.4183 230.614 87.6206C228.07 88.823 225.251 89.4238 222.16 89.4238C219.068 89.4238 216.275 88.823 213.782 87.6206C211.289 86.4183 209.145 84.8161 207.35 82.8112C205.554 80.8078 204.182 78.4531 203.236 75.7472C202.286 73.0421 201.814 70.1868 201.814 67.1821C201.814 64.1758 202.286 61.3205 203.236 58.6154C204.182 55.9102 205.554 53.5571 207.35 51.5522C209.145 49.5495 211.288 47.9451 213.782 46.7427C216.275 45.5404 219.068 44.9396 222.16 44.9396C225.251 44.9396 228.07 45.5404 230.614 46.7427C233.156 47.9451 235.326 49.5487 237.122 51.5522C238.917 53.5571 240.312 55.9102 241.31 58.6154C242.306 61.3205 242.806 64.1758 242.806 67.1821C242.805 70.1868 242.305 73.0421 241.31 75.7472Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M438 -3H421.694V102.197H438V-3Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M139.43 102.197H155.735V48.2834H183.712V32.1665H139.43V102.197Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M324.49 32.1665L303.995 85.794L283.498 32.1665H266.983L293.748 102.197H314.242L341.006 32.1665H324.49Z"
-                            fill="currentColor"
-                        />
-                        <path
-                            d="M376.571 30.3656C356.603 30.3656 340.797 46.8497 340.797 67.1828C340.797 89.6597 356.094 104 378.661 104C391.29 104 399.354 99.1488 409.206 88.5848L398.189 80.0226C398.183 80.031 389.874 90.9895 377.468 90.9895C363.048 90.9895 356.977 79.3111 356.977 73.269H411.075C413.917 50.1328 398.775 30.3656 376.571 30.3656ZM357.02 61.0967C357.145 59.7487 359.023 43.3761 376.442 43.3761C393.861 43.3761 395.978 59.7464 396.099 61.0967H357.02Z"
-                            fill="currentColor"
-                        />
-                    </svg>
-
-                    <!-- 13 -->
-                    <svg
-                        class="relative -mt-[6.6rem] -ml-8 w-[438px] max-w-none [--stroke-color:#1B1B18] lg:ml-0 dark:[--stroke-color:#FF750F]"
-                        viewBox="0 0 440 392"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
+                        Start Executing
+                    </Link>
+                    <Link
+                        v-else
+                        :href="dashboard()"
+                        class="rounded-lg bg-teal-600 px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-teal-500 dark:bg-teal-500 dark:hover:bg-teal-400"
                     >
-                        <g
-                            class="text-[#1B1B18] opacity-100 mix-blend-darken transition-all delay-300 duration-750 dark:text-black dark:mix-blend-normal starting:opacity-0"
-                        >
-                            <mask
-                                id="path-1-mask"
-                                maskUnits="userSpaceOnUse"
-                                x="-0.328613"
-                                y="103"
-                                width="338"
-                                height="299"
-                                fill="black"
-                            >
-                                <rect
-                                    fill="white"
-                                    x="-0.328613"
-                                    y="103"
-                                    width="338"
-                                    height="299"
-                                />
-                                <path
-                                    d="M234.936 400.8C204.136 400.8 178.936 392.4 159.336 375.6C140.136 358.8 130.536 337 130.536 310.2H200.736C200.736 318.2 203.736 324.8 209.736 330C215.736 335.2 223.736 337.8 233.736 337.8C243.336 337.8 251.136 335 257.136 329.4C263.536 323.8 266.736 316.6 266.736 307.8C266.736 299.8 263.936 293.2 258.336 288C252.736 282.8 245.536 280.2 236.736 280.2H199.536V218.4H236.736C243.536 218.4 249.336 216 254.136 211.2C258.936 206.4 261.336 200.4 261.336 193.2C261.336 184.8 258.736 178.2 253.536 173.4C248.336 168.6 241.736 166.2 233.736 166.2C226.536 166.2 220.336 168.4 215.136 172.8C210.336 177.2 207.936 182.8 207.936 189.6H141.336C141.336 164.8 150.136 144.6 167.736 129C185.336 113 207.936 105 235.536 105C263.136 105 285.536 112.2 302.736 126.6C320.336 141 329.136 160 329.136 183.6C329.136 200.8 324.536 214.8 315.336 225.6C306.136 236 294.336 243.2 279.936 247.2C297.136 252 310.736 260.2 320.736 271.8C331.136 283.4 336.336 298 336.336 315.6C336.336 340.4 326.936 360.8 308.136 376.8C289.336 392.8 264.936 400.8 234.936 400.8Z"
-                                />
-                                <path
-                                    d="M26.8714 167.6H1.67139V105.2H94.6714V400.2H26.8714V167.6Z"
-                                />
-                            </mask>
-                            <path
-                                d="M234.936 400.8C204.136 400.8 178.936 392.4 159.336 375.6C140.136 358.8 130.536 337 130.536 310.2H200.736C200.736 318.2 203.736 324.8 209.736 330C215.736 335.2 223.736 337.8 233.736 337.8C243.336 337.8 251.136 335 257.136 329.4C263.536 323.8 266.736 316.6 266.736 307.8C266.736 299.8 263.936 293.2 258.336 288C252.736 282.8 245.536 280.2 236.736 280.2H199.536V218.4H236.736C243.536 218.4 249.336 216 254.136 211.2C258.936 206.4 261.336 200.4 261.336 193.2C261.336 184.8 258.736 178.2 253.536 173.4C248.336 168.6 241.736 166.2 233.736 166.2C226.536 166.2 220.336 168.4 215.136 172.8C210.336 177.2 207.936 182.8 207.936 189.6H141.336C141.336 164.8 150.136 144.6 167.736 129C185.336 113 207.936 105 235.536 105C263.136 105 285.536 112.2 302.736 126.6C320.336 141 329.136 160 329.136 183.6C329.136 200.8 324.536 214.8 315.336 225.6C306.136 236 294.336 243.2 279.936 247.2C297.136 252 310.736 260.2 320.736 271.8C331.136 283.4 336.336 298 336.336 315.6C336.336 340.4 326.936 360.8 308.136 376.8C289.336 392.8 264.936 400.8 234.936 400.8Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M26.8714 167.6H1.67139V105.2H94.6714V400.2H26.8714V167.6Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M234.936 400.8C204.136 400.8 178.936 392.4 159.336 375.6C140.136 358.8 130.536 337 130.536 310.2H200.736C200.736 318.2 203.736 324.8 209.736 330C215.736 335.2 223.736 337.8 233.736 337.8C243.336 337.8 251.136 335 257.136 329.4C263.536 323.8 266.736 316.6 266.736 307.8C266.736 299.8 263.936 293.2 258.336 288C252.736 282.8 245.536 280.2 236.736 280.2H199.536V218.4H236.736C243.536 218.4 249.336 216 254.136 211.2C258.936 206.4 261.336 200.4 261.336 193.2C261.336 184.8 258.736 178.2 253.536 173.4C248.336 168.6 241.736 166.2 233.736 166.2C226.536 166.2 220.336 168.4 215.136 172.8C210.336 177.2 207.936 182.8 207.936 189.6H141.336C141.336 164.8 150.136 144.6 167.736 129C185.336 113 207.936 105 235.536 105C263.136 105 285.536 112.2 302.736 126.6C320.336 141 329.136 160 329.136 183.6C329.136 200.8 324.536 214.8 315.336 225.6C306.136 236 294.336 243.2 279.936 247.2C297.136 252 310.736 260.2 320.736 271.8C331.136 283.4 336.336 298 336.336 315.6C336.336 340.4 326.936 360.8 308.136 376.8C289.336 392.8 264.936 400.8 234.936 400.8Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-1-mask)"
-                            />
-                            <path
-                                d="M26.8714 167.6H1.67139V105.2H94.6714V400.2H26.8714V167.6Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-1-mask)"
-                            />
-                        </g>
+                        Open Dashboard
+                    </Link>
+                    <button
+                        @click="scrollToSection('deep-dive')"
+                        class="cursor-pointer rounded-lg border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                        Read Engineering Notes
+                    </button>
+                    <a
+                        href="https://github.com"
+                        target="_blank"
+                        class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" /></svg>
+                        GitHub
+                    </a>
+                </div>
+            </section>
 
-                        <g
-                            class="text-[#F3BEC7] opacity-100 transition-all delay-400 duration-750 dark:text-[#4B0600] starting:opacity-0 motion-safe:starting:-translate-x-[26px]"
-                        >
-                            <mask
-                                id="path-2-mask"
-                                maskUnits="userSpaceOnUse"
-                                x="25.3357"
-                                y="103"
-                                width="338"
-                                height="299"
-                                fill="black"
-                            >
-                                <rect
-                                    fill="white"
-                                    x="25.3357"
-                                    y="103"
-                                    width="338"
-                                    height="299"
-                                />
-                                <path
-                                    d="M260.6 400.8C229.8 400.8 204.6 392.4 185 375.6C165.8 358.8 156.2 337 156.2 310.2H226.4C226.4 318.2 229.4 324.8 235.4 330C241.4 335.2 249.4 337.8 259.4 337.8C269 337.8 276.8 335 282.8 329.4C289.2 323.8 292.4 316.6 292.4 307.8C292.4 299.8 289.6 293.2 284 288C278.4 282.8 271.2 280.2 262.4 280.2H225.2V218.4H262.4C269.2 218.4 275 216 279.8 211.2C284.6 206.4 287 200.4 287 193.2C287 184.8 284.4 178.2 279.2 173.4C274 168.6 267.4 166.2 259.4 166.2C252.2 166.2 246 168.4 240.8 172.8C236 177.2 233.6 182.8 233.6 189.6H167C167 164.8 175.8 144.6 193.4 129C211 113 233.6 105 261.2 105C288.8 105 311.2 112.2 328.4 126.6C346 141 354.8 160 354.8 183.6C354.8 200.8 350.2 214.8 341 225.6C331.8 236 320 243.2 305.6 247.2C322.8 252 336.4 260.2 346.4 271.8C356.8 283.4 362 298 362 315.6C362 340.4 352.6 360.8 333.8 376.8C315 392.8 290.6 400.8 260.6 400.8Z"
-                                />
-                                <path
-                                    d="M52.5357 167.6H27.3357V105.2H120.336V400.2H52.5357V167.6Z"
-                                />
-                            </mask>
-                            <path
-                                d="M260.6 400.8C229.8 400.8 204.6 392.4 185 375.6C165.8 358.8 156.2 337 156.2 310.2H226.4C226.4 318.2 229.4 324.8 235.4 330C241.4 335.2 249.4 337.8 259.4 337.8C269 337.8 276.8 335 282.8 329.4C289.2 323.8 292.4 316.6 292.4 307.8C292.4 299.8 289.6 293.2 284 288C278.4 282.8 271.2 280.2 262.4 280.2H225.2V218.4H262.4C269.2 218.4 275 216 279.8 211.2C284.6 206.4 287 200.4 287 193.2C287 184.8 284.4 178.2 279.2 173.4C274 168.6 267.4 166.2 259.4 166.2C252.2 166.2 246 168.4 240.8 172.8C236 177.2 233.6 182.8 233.6 189.6H167C167 164.8 175.8 144.6 193.4 129C211 113 233.6 105 261.2 105C288.8 105 311.2 112.2 328.4 126.6C346 141 354.8 160 354.8 183.6C354.8 200.8 350.2 214.8 341 225.6C331.8 236 320 243.2 305.6 247.2C322.8 252 336.4 260.2 346.4 271.8C356.8 283.4 362 298 362 315.6C362 340.4 352.6 360.8 333.8 376.8C315 392.8 290.6 400.8 260.6 400.8Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M52.5357 167.6H27.3357V105.2H120.336V400.2H52.5357V167.6Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M260.6 400.8C229.8 400.8 204.6 392.4 185 375.6C165.8 358.8 156.2 337 156.2 310.2H226.4C226.4 318.2 229.4 324.8 235.4 330C241.4 335.2 249.4 337.8 259.4 337.8C269 337.8 276.8 335 282.8 329.4C289.2 323.8 292.4 316.6 292.4 307.8C292.4 299.8 289.6 293.2 284 288C278.4 282.8 271.2 280.2 262.4 280.2H225.2V218.4H262.4C269.2 218.4 275 216 279.8 211.2C284.6 206.4 287 200.4 287 193.2C287 184.8 284.4 178.2 279.2 173.4C274 168.6 267.4 166.2 259.4 166.2C252.2 166.2 246 168.4 240.8 172.8C236 177.2 233.6 182.8 233.6 189.6H167C167 164.8 175.8 144.6 193.4 129C211 113 233.6 105 261.2 105C288.8 105 311.2 112.2 328.4 126.6C346 141 354.8 160 354.8 183.6C354.8 200.8 350.2 214.8 341 225.6C331.8 236 320 243.2 305.6 247.2C322.8 252 336.4 260.2 346.4 271.8C356.8 283.4 362 298 362 315.6C362 340.4 352.6 360.8 333.8 376.8C315 392.8 290.6 400.8 260.6 400.8Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-2-mask)"
-                            />
-                            <path
-                                d="M52.5357 167.6H27.3357V105.2H120.336V400.2H52.5357V167.6Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-2-mask)"
-                            />
-                        </g>
+            <!-- Problem vs Solution -->
+            <section class="mx-auto max-w-7xl px-6 py-16">
+                <div class="grid gap-8 md:grid-cols-2">
+                    <div class="rounded-2xl border border-red-500/10 bg-red-500/5 p-8 dark:bg-red-950/10">
+                        <h3 class="text-lg font-bold text-red-600 dark:text-red-400">The Planning Trap</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Why traditional systems break:</p>
+                        <ul class="mt-4 space-y-3">
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-red-500">✕</span>
+                                <div><strong>Calendar Fatigue:</strong> Anchoring tasks to strict times causes immediate gridlock the moment a meeting runs late.</div>
+                            </li>
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-red-500">✕</span>
+                                <div><strong>Backlog Accumulation:</strong> Todo lists grow infinitely without regard for the finite hours in a day.</div>
+                            </li>
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-red-500">✕</span>
+                                <div><strong>Dependency Blindness:</strong> Scheduling software places high-priority blockers alongside their prerequisites.</div>
+                            </li>
+                        </ul>
+                    </div>
 
-                        <g
-                            class="text-[#F8B803] opacity-100 mix-blend-color transition-all delay-400 duration-750 dark:text-[#391800] dark:mix-blend-hard-light starting:opacity-0 motion-safe:starting:-translate-x-[51px]"
-                        >
-                            <mask
-                                id="path-3-mask"
-                                maskUnits="userSpaceOnUse"
-                                x="51"
-                                y="103"
-                                width="338"
-                                height="299"
-                                fill="black"
-                            >
-                                <rect
-                                    fill="white"
-                                    x="51"
-                                    y="103"
-                                    width="338"
-                                    height="299"
-                                />
-                                <path
-                                    d="M286.264 400.8C255.464 400.8 230.264 392.4 210.664 375.6C191.464 358.8 181.864 337 181.864 310.2H252.064C252.064 318.2 255.064 324.8 261.064 330C267.064 335.2 275.064 337.8 285.064 337.8C294.664 337.8 302.464 335 308.464 329.4C314.864 323.8 318.064 316.6 318.064 307.8C318.064 299.8 315.264 293.2 309.664 288C304.064 282.8 296.864 280.2 288.064 280.2H250.864V218.4H288.064C294.864 218.4 300.664 216 305.464 211.2C310.264 206.4 312.664 200.4 312.664 193.2C312.664 184.8 310.064 178.2 304.864 173.4C299.664 168.6 293.064 166.2 285.064 166.2C277.864 166.2 271.664 168.4 266.464 172.8C261.664 177.2 259.264 182.8 259.264 189.6H192.664C192.664 164.8 201.464 144.6 219.064 129C236.664 113 259.264 105 286.864 105C314.464 105 336.864 112.2 354.064 126.6C371.664 141 380.464 160 380.464 183.6C380.464 200.8 375.864 214.8 366.664 225.6C357.464 236 345.664 243.2 331.264 247.2C348.464 252 362.064 260.2 372.064 271.8C382.464 283.4 387.664 298 387.664 315.6C387.664 340.4 378.264 360.8 359.464 376.8C340.664 392.8 316.264 400.8 286.264 400.8Z"
-                                />
-                                <path
-                                    d="M78.2 167.6H53V105.2H146V400.2H78.2V167.6Z"
-                                />
-                            </mask>
-                            <path
-                                d="M286.264 400.8C255.464 400.8 230.264 392.4 210.664 375.6C191.464 358.8 181.864 337 181.864 310.2H252.064C252.064 318.2 255.064 324.8 261.064 330C267.064 335.2 275.064 337.8 285.064 337.8C294.664 337.8 302.464 335 308.464 329.4C314.864 323.8 318.064 316.6 318.064 307.8C318.064 299.8 315.264 293.2 309.664 288C304.064 282.8 296.864 280.2 288.064 280.2H250.864V218.4H288.064C294.864 218.4 300.664 216 305.464 211.2C310.264 206.4 312.664 200.4 312.664 193.2C312.664 184.8 310.064 178.2 304.864 173.4C299.664 168.6 293.064 166.2 285.064 166.2C277.864 166.2 271.664 168.4 266.464 172.8C261.664 177.2 259.264 182.8 259.264 189.6H192.664C192.664 164.8 201.464 144.6 219.064 129C236.664 113 259.264 105 286.864 105C314.464 105 336.864 112.2 354.064 126.6C371.664 141 380.464 160 380.464 183.6C380.464 200.8 375.864 214.8 366.664 225.6C357.464 236 345.664 243.2 331.264 247.2C348.464 252 362.064 260.2 372.064 271.8C382.464 283.4 387.664 298 387.664 315.6C387.664 340.4 378.264 360.8 359.464 376.8C340.664 392.8 316.264 400.8 286.264 400.8Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M78.2 167.6H53V105.2H146V400.2H78.2V167.6Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M286.264 400.8C255.464 400.8 230.264 392.4 210.664 375.6C191.464 358.8 181.864 337 181.864 310.2H252.064C252.064 318.2 255.064 324.8 261.064 330C267.064 335.2 275.064 337.8 285.064 337.8C294.664 337.8 302.464 335 308.464 329.4C314.864 323.8 318.064 316.6 318.064 307.8C318.064 299.8 315.264 293.2 309.664 288C304.064 282.8 296.864 280.2 288.064 280.2H250.864V218.4H288.064C294.864 218.4 300.664 216 305.464 211.2C310.264 206.4 312.664 200.4 312.664 193.2C312.664 184.8 310.064 178.2 304.864 173.4C299.664 168.6 293.064 166.2 285.064 166.2C277.864 166.2 271.664 168.4 266.464 172.8C261.664 177.2 259.264 182.8 259.264 189.6H192.664C192.664 164.8 201.464 144.6 219.064 129C236.664 113 259.264 105 286.864 105C314.464 105 336.864 112.2 354.064 126.6C371.664 141 380.464 160 380.464 183.6C380.464 200.8 375.864 214.8 366.664 225.6C357.464 236 345.664 243.2 331.264 247.2C348.464 252 362.064 260.2 372.064 271.8C382.464 283.4 387.664 298 387.664 315.6C387.664 340.4 378.264 360.8 359.464 376.8C340.664 392.8 316.264 400.8 286.264 400.8Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-3-mask)"
-                            />
-                            <path
-                                d="M78.2 167.6H53V105.2H146V400.2H78.2V167.6Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-3-mask)"
-                            />
-                        </g>
+                    <div class="rounded-2xl border border-teal-500/10 bg-teal-500/5 p-8 dark:bg-teal-950/10">
+                        <h3 class="text-lg font-bold text-teal-600 dark:text-teal-400">The GoalOS Solution</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">How GoalOS approaches execution:</p>
+                        <ul class="mt-4 space-y-3">
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-teal-500">✓</span>
+                                <div><strong>Rolling capacity blocks:</strong> Tasks populate flexible morning, afternoon, and evening blocks based on energy profiles.</div>
+                            </li>
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-teal-500">✓</span>
+                                <div><strong>Constraint-aware packing:</strong> Greedy Knapsack algorithms ensure you never schedule more minutes than you have available.</div>
+                            </li>
+                            <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span class="mt-1 font-bold text-teal-500">✓</span>
+                                <div><strong>Topological ordering:</strong> Kahn's algorithm resolves prerequisites to guarantee work is executed in correct order.</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
 
-                        <g
-                            class="text-[#F3BEC7] opacity-100 mix-blend-multiply transition-all delay-400 duration-750 dark:text-[#733000] dark:mix-blend-normal starting:opacity-0 motion-safe:starting:-translate-x-[78px]"
-                        >
-                            <mask
-                                id="path-4-mask"
-                                maskUnits="userSpaceOnUse"
-                                x="76.6643"
-                                y="103"
-                                width="338"
-                                height="299"
-                                fill="black"
-                            >
-                                <rect
-                                    fill="white"
-                                    x="76.6643"
-                                    y="103"
-                                    width="338"
-                                    height="299"
+            <!-- Interactive Scheduler Simulator -->
+            <section class="mx-auto max-w-7xl px-6 py-16">
+                <div class="rounded-3xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900/50">
+                    <div class="lg:flex lg:items-center lg:justify-between lg:gap-12">
+                        <div class="max-w-md lg:shrink-0">
+                            <h2 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                                Test the Pack Engine
+                            </h2>
+                            <p class="mt-4 text-slate-600 dark:text-slate-400">
+                                Adjust the available daily minutes capacity to see how the mathematical packing engine prioritizes, splits, and defers tasks.
+                            </p>
+                            <div class="mt-8">
+                                <label class="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                    Daily Available Capacity: <span class="text-teal-600 dark:text-teal-400">{{ selectedCapacity }} minutes</span>
+                                </label>
+                                <input
+                                    type="range"
+                                    min="60"
+                                    max="480"
+                                    step="15"
+                                    v-model.number="selectedCapacity"
+                                    class="mt-2 w-full accent-teal-600 dark:accent-teal-500"
                                 />
-                                <path
-                                    d="M311.929 400.8C281.129 400.8 255.929 392.4 236.329 375.6C217.129 358.8 207.529 337 207.529 310.2H277.729C277.729 318.2 280.729 324.8 286.729 330C292.729 335.2 300.729 337.8 310.729 337.8C320.329 337.8 328.129 335 334.129 329.4C340.529 323.8 343.729 316.6 343.729 307.8C343.729 299.8 340.929 293.2 335.329 288C329.729 282.8 322.529 280.2 313.729 280.2H276.529V218.4H313.729C320.529 218.4 326.329 216 331.129 211.2C335.929 206.4 338.329 200.4 338.329 193.2C338.329 184.8 335.729 178.2 330.529 173.4C325.329 168.6 318.729 166.2 310.729 166.2C303.529 166.2 297.329 168.4 292.129 172.8C287.329 177.2 284.929 182.8 284.929 189.6H218.329C218.329 164.8 227.129 144.6 244.729 129C262.329 113 284.929 105 312.529 105C340.129 105 362.529 112.2 379.729 126.6C397.329 141 406.129 160 406.129 183.6C406.129 200.8 401.529 214.8 392.329 225.6C383.129 236 371.329 243.2 356.929 247.2C374.129 252 387.729 260.2 397.729 271.8C408.129 283.4 413.329 298 413.329 315.6C413.329 340.4 403.929 360.8 385.129 376.8C366.329 392.8 341.929 400.8 311.929 400.8Z"
-                                />
-                                <path
-                                    d="M103.864 167.6H78.6643V105.2H171.664V400.2H103.864V167.6Z"
-                                />
-                            </mask>
-                            <path
-                                d="M311.929 400.8C281.129 400.8 255.929 392.4 236.329 375.6C217.129 358.8 207.529 337 207.529 310.2H277.729C277.729 318.2 280.729 324.8 286.729 330C292.729 335.2 300.729 337.8 310.729 337.8C320.329 337.8 328.129 335 334.129 329.4C340.529 323.8 343.729 316.6 343.729 307.8C343.729 299.8 340.929 293.2 335.329 288C329.729 282.8 322.529 280.2 313.729 280.2H276.529V218.4H313.729C320.529 218.4 326.329 216 331.129 211.2C335.929 206.4 338.329 200.4 338.329 193.2C338.329 184.8 335.729 178.2 330.529 173.4C325.329 168.6 318.729 166.2 310.729 166.2C303.529 166.2 297.329 168.4 292.129 172.8C287.329 177.2 284.929 182.8 284.929 189.6H218.329C218.329 164.8 227.129 144.6 244.729 129C262.329 113 284.929 105 312.529 105C340.129 105 362.529 112.2 379.729 126.6C397.329 141 406.129 160 406.129 183.6C406.129 200.8 401.529 214.8 392.329 225.6C383.129 236 371.329 243.2 356.929 247.2C374.129 252 387.729 260.2 397.729 271.8C408.129 283.4 413.329 298 413.329 315.6C413.329 340.4 403.929 360.8 385.129 376.8C366.329 392.8 341.929 400.8 311.929 400.8Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M103.864 167.6H78.6643V105.2H171.664V400.2H103.864V167.6Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M311.929 400.8C281.129 400.8 255.929 392.4 236.329 375.6C217.129 358.8 207.529 337 207.529 310.2H277.729C277.729 318.2 280.729 324.8 286.729 330C292.729 335.2 300.729 337.8 310.729 337.8C320.329 337.8 328.129 335 334.129 329.4C340.529 323.8 343.729 316.6 343.729 307.8C343.729 299.8 340.929 293.2 335.329 288C329.729 282.8 322.529 280.2 313.729 280.2H276.529V218.4H313.729C320.529 218.4 326.329 216 331.129 211.2C335.929 206.4 338.329 200.4 338.329 193.2C338.329 184.8 335.729 178.2 330.529 173.4C325.329 168.6 318.729 166.2 310.729 166.2C303.529 166.2 297.329 168.4 292.129 172.8C287.329 177.2 284.929 182.8 284.929 189.6H218.329C218.329 164.8 227.129 144.6 244.729 129C262.329 113 284.929 105 312.529 105C340.129 105 362.529 112.2 379.729 126.6C397.329 141 406.129 160 406.129 183.6C406.129 200.8 401.529 214.8 392.329 225.6C383.129 236 371.329 243.2 356.929 247.2C374.129 252 387.729 260.2 397.729 271.8C408.129 283.4 413.329 298 413.329 315.6C413.329 340.4 403.929 360.8 385.129 376.8C366.329 392.8 341.929 400.8 311.929 400.8Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-4-mask)"
-                            />
-                            <path
-                                d="M103.864 167.6H78.6643V105.2H171.664V400.2H103.864V167.6Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-4-mask)"
-                            />
-                        </g>
+                                <div class="mt-2 flex justify-between text-xs text-slate-400">
+                                    <span>1 hour</span>
+                                    <span>4 hours</span>
+                                    <span>8 hours</span>
+                                </div>
+                            </div>
 
-                        <g
-                            class="text-[#F3BEC7] opacity-100 mix-blend-hard-light transition-all delay-400 duration-750 dark:text-[#4B0600] starting:opacity-0 motion-safe:starting:-translate-x-[102px]"
-                        >
-                            <mask
-                                id="path-5-mask"
-                                maskUnits="userSpaceOnUse"
-                                x="102.329"
-                                y="103"
-                                width="338"
-                                height="299"
-                                fill="black"
-                            >
-                                <rect
-                                    fill="white"
-                                    x="102.329"
-                                    y="103"
-                                    width="338"
-                                    height="299"
-                                />
-                                <path
-                                    d="M337.593 400.8C306.793 400.8 281.593 392.4 261.993 375.6C242.793 358.8 233.193 337 233.193 310.2H303.393C303.393 318.2 306.393 324.8 312.393 330C318.393 335.2 326.393 337.8 336.393 337.8C345.993 337.8 353.793 335 359.793 329.4C366.193 323.8 369.393 316.6 369.393 307.8C369.393 299.8 366.593 293.2 360.993 288C355.393 282.8 348.193 280.2 339.393 280.2H302.193V218.4H339.393C346.193 218.4 351.993 216 356.793 211.2C361.593 206.4 363.993 200.4 363.993 193.2C363.993 184.8 361.393 178.2 356.193 173.4C350.993 168.6 344.393 166.2 336.393 166.2C329.193 166.2 322.993 168.4 317.793 172.8C312.993 177.2 310.593 182.8 310.593 189.6H243.993C243.993 164.8 252.793 144.6 270.393 129C287.993 113 310.593 105 338.193 105C365.793 105 388.193 112.2 405.393 126.6C422.993 141 431.793 160 431.793 183.6C431.793 200.8 427.193 214.8 417.993 225.6C408.793 236 396.993 243.2 382.593 247.2C399.793 252 413.393 260.2 423.393 271.8C433.793 283.4 438.993 298 438.993 315.6C438.993 340.4 429.593 360.8 410.793 376.8C391.993 392.8 367.593 400.8 337.593 400.8Z"
-                                />
-                                <path
-                                    d="M129.529 167.6H104.329V105.2H197.329V400.2H129.529V167.6Z"
-                                />
-                            </mask>
-                            <path
-                                d="M337.593 400.8C306.793 400.8 281.593 392.4 261.993 375.6C242.793 358.8 233.193 337 233.193 310.2H303.393C303.393 318.2 306.393 324.8 312.393 330C318.393 335.2 326.393 337.8 336.393 337.8C345.993 337.8 353.793 335 359.793 329.4C366.193 323.8 369.393 316.6 369.393 307.8C369.393 299.8 366.593 293.2 360.993 288C355.393 282.8 348.193 280.2 339.393 280.2H302.193V218.4H339.393C346.193 218.4 351.993 216 356.793 211.2C361.593 206.4 363.993 200.4 363.993 193.2C363.993 184.8 361.393 178.2 356.193 173.4C350.993 168.6 344.393 166.2 336.393 166.2C329.193 166.2 322.993 168.4 317.793 172.8C312.993 177.2 310.593 182.8 310.593 189.6H243.993C243.993 164.8 252.793 144.6 270.393 129C287.993 113 310.593 105 338.193 105C365.793 105 388.193 112.2 405.393 126.6C422.993 141 431.793 160 431.793 183.6C431.793 200.8 427.193 214.8 417.993 225.6C408.793 236 396.993 243.2 382.593 247.2C399.793 252 413.393 260.2 423.393 271.8C433.793 283.4 438.993 298 438.993 315.6C438.993 340.4 429.593 360.8 410.793 376.8C391.993 392.8 367.593 400.8 337.593 400.8Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M129.529 167.6H104.329V105.2H197.329V400.2H129.529V167.6Z"
-                                fill="currentColor"
-                            />
-                            <path
-                                d="M337.593 400.8C306.793 400.8 281.593 392.4 261.993 375.6C242.793 358.8 233.193 337 233.193 310.2H303.393C303.393 318.2 306.393 324.8 312.393 330C318.393 335.2 326.393 337.8 336.393 337.8C345.993 337.8 353.793 335 359.793 329.4C366.193 323.8 369.393 316.6 369.393 307.8C369.393 299.8 366.593 293.2 360.993 288C355.393 282.8 348.193 280.2 339.393 280.2H302.193V218.4H339.393C346.193 218.4 351.993 216 356.793 211.2C361.593 206.4 363.993 200.4 363.993 193.2C363.993 184.8 361.393 178.2 356.193 173.4C350.993 168.6 344.393 166.2 336.393 166.2C329.193 166.2 322.993 168.4 317.793 172.8C312.993 177.2 310.593 182.8 310.593 189.6H243.993C243.993 164.8 252.793 144.6 270.393 129C287.993 113 310.593 105 338.193 105C365.793 105 388.193 112.2 405.393 126.6C422.993 141 431.793 160 431.793 183.6C431.793 200.8 427.193 214.8 417.993 225.6C408.793 236 396.993 243.2 382.593 247.2C399.793 252 413.393 260.2 423.393 271.8C433.793 283.4 438.993 298 438.993 315.6C438.993 340.4 429.593 360.8 410.793 376.8C391.993 392.8 367.593 400.8 337.593 400.8Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-5-mask)"
-                            />
-                            <path
-                                d="M129.529 167.6H104.329V105.2H197.329V400.2H129.529V167.6Z"
-                                stroke="var(--stroke-color)"
-                                stroke-width="2.4"
-                                mask="url(#path-5-mask)"
-                            />
-                        </g>
-                    </svg>
+                            <div class="mt-8 border-t border-slate-100 pt-6 dark:border-slate-800">
+                                <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">Allocation Metrics</h4>
+                                <div class="mt-4 flex items-center gap-4">
+                                    <div class="relative flex h-16 w-16 items-center justify-center rounded-full border-4 border-slate-100 dark:border-slate-800">
+                                        <span class="text-sm font-bold">{{ capacityPercentage }}%</span>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium">{{ totalAllocated }}m scheduled</div>
+                                        <div class="text-xs text-slate-400">{{ selectedCapacity - totalAllocated }}m remaining capacity</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 grow lg:mt-0">
+                            <div class="rounded-2xl border border-slate-200/60 bg-slate-50/50 p-6 dark:border-slate-800/60 dark:bg-slate-950/50">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Simulation Task queue</span>
+                                    <span class="text-xs text-teal-600 dark:text-teal-400 font-semibold">Priority & Dependency Sorted</span>
+                                </div>
+                                <div class="mt-4 space-y-3">
+                                    <div
+                                        v-for="task in scheduledTasks"
+                                        :key="task.id"
+                                        class="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white p-4 transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-900"
+                                    >
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ task.title }}</span>
+                                                <span class="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                                    {{ task.priority }}
+                                                </span>
+                                            </div>
+                                            <div class="mt-1 flex items-center gap-4 text-xs text-slate-500">
+                                                <span>Estimated: {{ task.duration }}m</span>
+                                                <span v-if="task.dependsOn" class="text-indigo-600 dark:text-indigo-400">Depends on #{{ task.dependsOn }}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span
+                                                v-if="task.status === 'scheduled'"
+                                                class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                                            >
+                                                Scheduled ({{ task.allocatedMinutes }}m)
+                                            </span>
+                                            <span
+                                                v-else-if="task.status === 'split'"
+                                                class="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400"
+                                            >
+                                                Split ({{ task.allocatedMinutes }}m)
+                                            </span>
+                                            <span
+                                                v-else-if="task.status === 'deferred'"
+                                                class="rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                                            >
+                                                Deferred
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400"
+                                            >
+                                                Blocked
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section class="mx-auto max-w-7xl px-6 py-16">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Core Engine Features</h2>
+                    <p class="mt-4 text-slate-600 dark:text-slate-400">Strictly mapped to the underlying application architecture.</p>
+                </div>
+                <div class="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Constraint Scheduler</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Greedy Knapsack-based packing algorithm matches priorities and energy levels directly against available daily minute profiles.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 013 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Topological Sorting</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Resolves task prerequisite hierarchies via Kahn's algorithm to prevent dependencies from violating execution order.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Routine Automation</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Generates routine step checklist instances automatically at 00:01 daily based on week/weekend frequency configuration rules.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Momentum Analytics</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Pre-computed analytics snapshots track weekly completion rates, weekday heatmaps, and energy performance mismatch metrics.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">AI Roadmap Planner</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Decomposes high-level goal definitions into logical task trees asynchronously via LLM queues when requested.</p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        </div>
+                        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Enterprise Fortify Auth</h3>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Full passkey authentication, multi-device management, and TOTP-based two-factor security out of the box.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Under the Hood (Architecture Diagram) -->
+            <section id="architecture" class="mx-auto max-w-7xl px-6 py-16 scroll-mt-16">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Under the Hood</h2>
+                    <p class="mt-4 text-slate-600 dark:text-slate-400">How data moves through the core scheduling pipeline.</p>
+                </div>
+                <div class="mt-12 rounded-3xl border border-slate-200 bg-slate-50 p-8 dark:border-slate-800 dark:bg-slate-900/50">
+                    <div class="grid gap-8 md:grid-cols-4">
+                        <div class="rounded-2xl bg-white p-6 dark:bg-slate-900">
+                            <span class="text-xs font-bold text-teal-600 dark:text-teal-400">STEP 1</span>
+                            <h4 class="mt-2 font-bold">State Request</h4>
+                            <p class="mt-2 text-xs text-slate-500">Inertia client triggers `POST /api/tasks/{id}/complete` requesting task mutation. Request validation is handled via custom FormRequests.</p>
+                        </div>
+                        <div class="rounded-2xl bg-white p-6 dark:bg-slate-900">
+                            <span class="text-xs font-bold text-teal-600 dark:text-teal-400">STEP 2</span>
+                            <h4 class="mt-2 font-bold">Event Dispatch</h4>
+                            <p class="mt-2 text-xs text-slate-500">`TaskCompleted` event fires. DB writes log. Laravel Event Bus pushes recalculation payload onto Redis-backed Queue.</p>
+                        </div>
+                        <div class="rounded-2xl bg-white p-6 dark:bg-slate-900">
+                            <span class="text-xs font-bold text-teal-600 dark:text-teal-400">STEP 3</span>
+                            <h4 class="mt-2 font-bold">Queue Processing</h4>
+                            <p class="mt-2 text-xs text-slate-500">Queue Worker executes `GenerateUserScheduleJob`. Eager loads dependencies and calls `SchedulingService::packSchedule()`.</p>
+                        </div>
+                        <div class="rounded-2xl bg-white p-6 dark:bg-slate-900">
+                            <span class="text-xs font-bold text-teal-600 dark:text-teal-400">STEP 4</span>
+                            <h4 class="mt-2 font-bold">Persistence & Cache</h4>
+                            <p class="mt-2 text-xs text-slate-500">Old slots are cleared, new slots are persisted to MySQL and cached under `schedule:{user_id}:{date}` in Redis. Client is updated via Inertia refresh.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reliability & System Guarantees -->
+            <section id="guarantees" class="mx-auto max-w-7xl px-6 py-16 scroll-mt-16">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Reliability & System Guarantees</h2>
+                    <p class="mt-4 text-slate-600 dark:text-slate-400">GoalOS is engineered with fault tolerance, isolation, and consistency in mind.</p>
+                </div>
+                <div class="mt-12 grid gap-8 md:grid-cols-2">
+                    <div class="flex gap-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">Idempotent Generation</h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                                Routine instance generation uses database-level constraints and unique keys (`routine_id`, `date`) via Laravel's `firstOrCreate`. This guarantees that daily routine checklists are never generated twice, even if multiple schedules or retries run.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">Failure Isolation</h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                                AI planning services and Weekly review requests interact with external LLM endpoints asynchronously. If an endpoint becomes unavailable, jobs are isolated and retried with exponential backoff. The core deterministic scheduler remains active.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">Cache Fallback</h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                                Today's plan is cached in Redis for fast retrieval. In the event of a Redis node failure, the application automatically falls back to reading the persisted `scheduled_slots` from MySQL directly, maintaining high availability.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" /></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">Automatic Backpressure</h4>
+                            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                                Massive calculations like rolling-window updates are decoupled from HTTP request lifecycles. They are handled by Laravel queue workers, preventing high web request execution times from causing DB lock contention.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Engineering Deep Dive -->
+            <section id="deep-dive" class="mx-auto max-w-7xl px-6 py-16 scroll-mt-16">
+                <div class="rounded-3xl bg-slate-900 p-8 text-white dark:bg-slate-900/40">
+                    <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">Engineering Deep Dive</h2>
+                    <p class="mt-2 text-sm text-teal-400">Implementation strategies, algorithms, and tradeoffs</p>
+
+                    <div class="mt-12 space-y-8">
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-200">1. Capacity-Aware Knapsack Heuristic</h4>
+                            <p class="mt-2 text-sm text-slate-400">
+                                The engine models schedules using a variation of the bounded knapsack problem. Available capacity minutes represent the knapsack capacity. Tasks, weighted by priority (Critical = 4, High = 3, Medium = 2, Low = 1) and energy level, are placed greedily. To handle larger tasks, the algorithm checks `can_split` flags. If enabled, it schedules a portion of the task to fill the remaining daily slot, marks the split in `task_logs`, and carries the remaining minutes over as a new deferred task on the subsequent day.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-200">2. Topological Graph Resolution</h4>
+                            <p class="mt-2 text-sm text-slate-400">
+                                Task execution lists are validated using Kahn's algorithm for topological sorting prior to schedule packing. Dependencies defined in `task_dependencies` must be resolved. Cycles are caught during task creation (`hasCyclicDependency`) to prevent infinite calculation loops. In the scheduling loop, any task whose dependency has not been scheduled within the current window is flagged as blocked and skipped for packing.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-200">3. Concurrency Protection & User Isolation</h4>
+                            <p class="mt-2 text-sm text-slate-400">
+                                Schedule recalculation is user-scoped. To prevent race conditions from double-clicks or concurrent REST updates, the `GenerateUserScheduleJob` obtains an atomic Redis lock on `schedule_lock:{user_id}` for up to 10 seconds. If a lock is held, subsequent recalculation requests are discarded, protecting the scheduling service from calculation loops and lock contention.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-200">4. Eager Loading & N+1 Prevention</h4>
+                            <p class="mt-2 text-sm text-slate-400">
+                                The `SchedulingService::loadPendingTasks()` pipeline relies on database relationships. To keep response times fast, we eager load `taskAttribute` and `dependencies` when pulling the pending task collection. This reduces database queries from O(N) to O(1) during the constraint validation step.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-200">5. Tradeoff: Determinism vs. Flexibility</h4>
+                            <p class="mt-2 text-sm text-slate-400">
+                                A major design decision was choosing deterministic constraint-based scheduling over heuristic estimations. Rather than squeezing tasks into overfilled days, the engine strictly defers tasks if capacity is exceeded. While this ensures daily schedules are realistic and achievable, it requires users to actively change their capacity overrides in `user_capacity_profiles` if they want to load more work.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tech Stack Section -->
+            <section class="mx-auto max-w-7xl px-6 py-16">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Technical Stack</h2>
+                    <p class="mt-4 text-slate-600 dark:text-slate-400">Standardized stack mapping exactly to the production codebase.</p>
+                </div>
+                <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900">
+                        <span class="text-xs font-bold text-slate-400">BACKEND</span>
+                        <h4 class="mt-2 font-bold text-slate-900 dark:text-white">Laravel 13 & PHP 8.3+</h4>
+                        <p class="mt-2 text-xs text-slate-500">Clean service layer architecture, Form Requests, API Resources, and event-driven listeners.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900">
+                        <span class="text-xs font-bold text-slate-400">FRONTEND</span>
+                        <h4 class="mt-2 font-bold text-slate-900 dark:text-white">Vue 3 & Inertia.js v3</h4>
+                        <p class="mt-2 text-xs text-slate-500">Single Page App experience with deferred props, polling, and direct layout prop bindings.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900">
+                        <span class="text-xs font-bold text-slate-400">INFRASTRUCTURE</span>
+                        <h4 class="mt-2 font-bold text-slate-900 dark:text-white">MySQL & Redis</h4>
+                        <p class="mt-2 text-xs text-slate-500">Fully normalized schemas with foreign keys, Redis schedule caching, and background queues.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900">
+                        <span class="text-xs font-bold text-slate-400">STYLING</span>
+                        <h4 class="mt-2 font-bold text-slate-900 dark:text-white">Tailwind CSS v4</h4>
+                        <p class="mt-2 text-xs text-slate-500">Pure Tailwind styling conforming to the custom CSS theme and system-preference dark mode.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAQ Section -->
+            <section id="faq" class="mx-auto max-w-4xl px-6 py-16 scroll-mt-16">
+                <div class="text-center">
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Frequently Asked Questions</h2>
+                    <p class="mt-4 text-slate-600 dark:text-slate-400">Engineering answers for how the platform operates.</p>
+                </div>
+                <div class="mt-12 space-y-4">
                     <div
-                        class="absolute inset-0 rounded-t-lg shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] lg:rounded-t-none lg:rounded-r-lg dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
-                    ></div>
+                        v-for="(item, index) in faqItems"
+                        :key="index"
+                        class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/60"
+                    >
+                        <button
+                            @click="toggleFaq(index)"
+                            class="flex w-full items-center justify-between p-6 text-left font-semibold text-slate-900 dark:text-white"
+                        >
+                            <span>{{ item.question }}</span>
+                            <span class="ml-6 shrink-0 text-slate-400">
+                                <svg
+                                    class="h-5 w-5 transform transition-transform duration-200"
+                                    :class="{ 'rotate-180': openFaqIndex === index }"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </span>
+                        </button>
+                        <div
+                            v-show="openFaqIndex === index"
+                            class="border-t border-slate-100 p-6 text-sm leading-relaxed text-slate-600 dark:border-slate-800 dark:text-slate-400"
+                        >
+                            {{ item.answer }}
+                        </div>
+                    </div>
                 </div>
-            </main>
-        </div>
-        <div class="hidden h-14.5 lg:block"></div>
+            </section>
+
+            <!-- CTA Section -->
+            <section class="mx-auto max-w-7xl px-6 py-16">
+                <div class="relative overflow-hidden rounded-3xl bg-slate-900 px-6 py-20 text-center shadow-xl dark:bg-slate-900/40 sm:px-12">
+                    <div class="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(20,184,166,0.15),transparent)]"></div>
+                    <h2 class="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Optimize Your Execution Pipeline Today
+                    </h2>
+                    <p class="mx-auto mt-6 max-w-xl text-lg text-slate-400">
+                        Stop managing lists. Start executing commitments on a schedule that adapts to your capacity and energy.
+                    </p>
+                    <div class="mt-10 flex justify-center gap-4">
+                        <Link
+                            v-if="!$page.props.auth.user"
+                            :href="register()"
+                            class="rounded-lg bg-teal-500 px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-teal-400"
+                        >
+                            Get Started
+                        </Link>
+                        <Link
+                            v-else
+                            :href="dashboard()"
+                            class="rounded-lg bg-teal-500 px-6 py-3 text-base font-semibold text-white shadow-md hover:bg-teal-400"
+                        >
+                            Go to Dashboard
+                        </Link>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="border-t border-slate-200/80 bg-slate-50 py-12 dark:border-slate-800/80 dark:bg-slate-950">
+            <div class="mx-auto max-w-7xl px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                <div class="flex justify-center gap-2 mb-4">
+                    <AppLogoIcon class="size-5 text-slate-400" />
+                    <span class="font-sans font-bold">AD. Routine</span>
+                </div>
+                <p>&copy; 2026 AD-Technology-Inc. All rights reserved.</p>
+            </div>
+        </footer>
     </div>
 </template>
