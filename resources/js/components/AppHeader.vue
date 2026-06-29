@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from '@lucide/vue';
+import { BookOpen, BotMessageSquare, BarChart3, CalendarCheck2, LayoutGrid, ListTodo, Menu, Search, Target } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
@@ -59,17 +59,37 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
+    {
+        title: 'Goals',
+        href: '/goals',
+        icon: Target,
+    },
+    {
+        title: 'Tasks',
+        href: '/tasks',
+        icon: ListTodo,
+    },
+    {
+        title: 'Routines',
+        href: '/routines',
+        icon: CalendarCheck2,
+    },
+    {
+        title: 'Analytics',
+        href: '/analytics',
+        icon: BarChart3,
+    },
+    {
+        title: 'AI Coach',
+        href: '/ai-coach',
+        icon: BotMessageSquare,
+    },
 ];
 
 const rightNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: Folder,
-    },
-    {
         title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
+        href: 'https://laravel.com/docs',
         icon: BookOpen,
     },
 ];
