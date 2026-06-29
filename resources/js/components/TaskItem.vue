@@ -72,7 +72,7 @@ const estimatedHours = computed(() => {
         </button>
         <CheckCircle2
             v-else-if="isCompleted"
-            class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+            class="mt-0.5 h-5 w-5 shrink-0 text-success"
         />
         <SkipForward
             v-else

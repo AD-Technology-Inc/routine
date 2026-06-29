@@ -46,7 +46,7 @@ const title = computed(() => {
     <div
         class="group flex items-start gap-3 rounded-lg border bg-card px-4 py-3 transition-all"
         :class="{
-            'border-emerald-500/40 bg-emerald-500/5': isCompleted,
+            'border-success/40 bg-success/5': isCompleted,
             'border-border/40 opacity-60': isSkipped,
             'border-border/60 hover:border-border hover:shadow-sm': isPending,
         }"
@@ -62,7 +62,7 @@ const title = computed(() => {
         </button>
         <CheckCircle2
             v-else-if="isCompleted"
-            class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+            class="mt-0.5 h-5 w-5 shrink-0 text-success"
         />
         <SkipForward v-else class="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
 

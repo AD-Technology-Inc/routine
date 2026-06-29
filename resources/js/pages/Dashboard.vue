@@ -150,7 +150,7 @@ onMounted(async () => {
                     <TrendingUp class="h-4 w-4" />
                     Done Today
                 </div>
-                <div class="mt-1 text-2xl font-bold text-emerald-500">
+                <div class="mt-1 text-2xl font-bold text-primary">
                     <template v-if="scheduleStore.isLoading.value">
                         <Skeleton class="h-8 w-12" />
                     </template>

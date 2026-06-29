@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { dashboard, login, register } from '@/routes';
 import { ref, computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { Badge } from '@/components/ui/badge';
 
 // Simulator state
 const selectedCapacity = ref(240);
@@ -81,7 +82,7 @@ const capacityPercentage = computed(() => {
 const faqItems = ref([
     {
         question: "How does the scheduling engine differ from a standard calendar?",
-        answer: "Standard calendars force you to anchor tasks to strict times, leading to schedule debt when tasks overrun. GoalOS uses a rolling-window capacity packer. It evaluates your available minutes, task priorities, energy requirements, and dependencies, then packs tasks dynamically into flexible morning, afternoon, or evening blocks."
+        answer: "Standard calendars force you to anchor tasks to strict times, leading to schedule debt when tasks overrun. AD. Routine uses a rolling-window capacity packer. It evaluates your available minutes, task priorities, energy requirements, and dependencies, then packs tasks dynamically into flexible morning, afternoon, or evening blocks."
     },
     {
         question: "What is topological dependency sorting?",
@@ -112,7 +113,7 @@ const scrollToSection = (id: string) => {
 
 <template>
     <div class="min-h-screen bg-background text-foreground transition-colors duration-300">
-        <Head title="GoalOS - Adaptive AI Goal & Routine Operating System">
+        <Head title="AD. Routine - Adaptive AI Goal & Routine Operating System">
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true" />
             <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
@@ -123,7 +124,7 @@ const scrollToSection = (id: string) => {
             <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
                 <div class="flex items-center gap-2">
                     <AppLogoIcon class="size-6 text-primary" />
-                    <span class="font-sans text-lg font-bold tracking-tight text-foreground">AD. Routine <span class="text-xs font-normal text-muted-foreground">GoalOS</span></span>
+                    <span class="font-sans text-lg font-bold tracking-tight text-foreground">AD. Routine <span class="text-xs font-normal text-muted-foreground">Operating System</span></span>
                 </div>
                 <nav class="hidden items-center gap-8 md:flex">
                     <button @click="scrollToSection('architecture')" class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">Architecture</button>
@@ -135,20 +136,20 @@ const scrollToSection = (id: string) => {
                     <Link
                         v-if="$page.props.auth.user"
                         :href="dashboard()"
-                        class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                        class="button button-primary"
                     >
                         Go to Dashboard
                     </Link>
                     <template v-else>
                         <Link
                             :href="login()"
-                            class="text-sm font-semibold text-muted-foreground hover:text-foreground"
+                            class="button button-link text-muted-foreground hover:text-foreground text-sm font-semibold"
                         >
                             Log in
                         </Link>
                         <Link
                             :href="register()"
-                            class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                            class="button button-primary"
                         >
                             Register
                         </Link>
@@ -175,33 +176,33 @@ const scrollToSection = (id: string) => {
                     <span class="bg-gradient-to-r from-foreground via-foreground/90 to-foreground/75 bg-clip-text text-transparent">Schedules are decisions.</span>
                 </h1>
                 <p class="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-                    GoalOS is a production-grade execution platform that combines deterministic packing algorithms, dependency graphing, and behavior analysis. It continuously compiles hierarchical goals into optimized, rolling daily schedules.
+                    AD. Routine is a production-grade execution platform that combines deterministic packing algorithms, dependency graphing, and behavior analysis. It continuously compiles hierarchical goals into optimized, rolling daily schedules.
                 </p>
                 <div class="mt-10 flex flex-wrap justify-center gap-4">
                     <Link
                         v-if="!$page.props.auth.user"
                         :href="register()"
-                        class="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
+                        class="button button-primary button-lg shadow-md"
                     >
                         Start Executing
                     </Link>
                     <Link
                         v-else
                         :href="dashboard()"
-                        class="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
+                        class="button button-primary button-lg shadow-md"
                     >
                         Open Dashboard
                     </Link>
                     <button
                         @click="scrollToSection('deep-dive')"
-                        class="cursor-pointer rounded-lg border border-input bg-background px-6 py-3 text-base font-semibold text-foreground hover:bg-accent hover:text-accent-foreground shadow-sm"
+                        class="button button-outline button-lg shadow-sm"
                     >
                         Read Engineering Notes
                     </button>
                     <a
                         href="https://github.com"
                         target="_blank"
-                        class="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-6 py-3 text-base font-semibold text-foreground hover:bg-accent hover:text-accent-foreground shadow-sm"
+                        class="button button-outline button-lg shadow-sm inline-flex items-center gap-2"
                     >
                         <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" /></svg>
                         GitHub
@@ -232,8 +233,8 @@ const scrollToSection = (id: string) => {
                     </div>
 
                     <div class="rounded-2xl border border-primary/10 bg-primary/5 p-8">
-                        <h3 class="text-lg font-bold text-primary">The GoalOS Solution</h3>
-                        <p class="mt-2 text-sm text-muted-foreground">How GoalOS approaches execution:</p>
+                        <h3 class="text-lg font-bold text-primary">The AD. Routine Solution</h3>
+                        <p class="mt-2 text-sm text-muted-foreground">How AD. Routine approaches execution:</p>
                         <ul class="mt-4 space-y-3">
                             <li class="flex items-start gap-2 text-sm text-muted-foreground">
                                 <span class="mt-1 font-bold text-primary">✓</span>
@@ -321,30 +322,30 @@ const scrollToSection = (id: string) => {
                                             </div>
                                         </div>
                                         <div>
-                                            <span
+                                            <Badge
                                                 v-if="task.status === 'scheduled'"
-                                                class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                                                variant="default"
                                             >
                                                 Scheduled ({{ task.allocatedMinutes }}m)
-                                            </span>
-                                            <span
+                                            </Badge>
+                                            <Badge
                                                 v-else-if="task.status === 'split'"
-                                                class="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400"
+                                                variant="secondary"
                                             >
                                                 Split ({{ task.allocatedMinutes }}m)
-                                            </span>
-                                            <span
+                                            </Badge>
+                                            <Badge
                                                 v-else-if="task.status === 'deferred'"
-                                                class="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+                                                variant="outline"
                                             >
                                                 Deferred
-                                            </span>
-                                            <span
+                                            </Badge>
+                                            <Badge
                                                 v-else
-                                                class="rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive"
+                                                variant="destructive"
                                             >
                                                 Blocked
-                                            </span>
+                                            </Badge>
                                         </div>
                                     </div>
                                 </div>
@@ -447,7 +448,7 @@ const scrollToSection = (id: string) => {
             <section id="guarantees" class="mx-auto max-w-7xl px-6 py-16 scroll-mt-16">
                 <div class="text-center">
                     <h2 class="text-3xl font-bold tracking-tight text-foreground">Reliability & System Guarantees</h2>
-                    <p class="mt-4 text-muted-foreground">GoalOS is engineered with fault tolerance, isolation, and consistency in mind.</p>
+                    <p class="mt-4 text-muted-foreground">AD. Routine is engineered with fault tolerance, isolation, and consistency in mind.</p>
                 </div>
                 <div class="mt-12 grid gap-8 md:grid-cols-2">
                     <div class="flex gap-4">
@@ -628,14 +629,14 @@ const scrollToSection = (id: string) => {
                         <Link
                             v-if="!$page.props.auth.user"
                             :href="register()"
-                            class="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
+                            class="button button-primary button-lg shadow-md"
                         >
                             Get Started
                         </Link>
                         <Link
                             v-else
                             :href="dashboard()"
-                            class="rounded-lg bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
+                            class="button button-primary button-lg shadow-md"
                         >
                             Go to Dashboard
                         </Link>

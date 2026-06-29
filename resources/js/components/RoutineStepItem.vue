@@ -29,7 +29,7 @@ const emit = defineEmits<{
         </button>
         <CheckCircle2
             v-else
-            class="h-5 w-5 shrink-0 text-emerald-500"
+            class="h-5 w-5 shrink-0 text-success"
         />
 
         <span

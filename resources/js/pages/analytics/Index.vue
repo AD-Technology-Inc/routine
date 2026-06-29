@@ -108,7 +108,7 @@ onMounted(() => analyticsStore.fetchAll(selectedDays.value));
                     <Calendar class="h-4 w-4" />
                     Total Completed
                 </div>
-                <div class="mt-1 text-2xl font-bold text-emerald-500">
+                <div class="mt-1 text-2xl font-bold text-primary">
                     <Skeleton v-if="analyticsStore.isLoading.value" class="h-8 w-14" />
                     <template v-else>{{ totalCompleted }}</template>
                 </div>
@@ -154,7 +154,7 @@ onMounted(() => analyticsStore.fetchAll(selectedDays.value));
                         />
                         <!-- Completed overlay -->
                         <div
-                            class="absolute bottom-0 w-full rounded-t bg-emerald-500/70 transition-all"
+                            class="absolute bottom-0 w-full rounded-t bg-primary/70 transition-all"
                             :style="{ height: (snap.total_tasks_completed / barMax) * 100 + '%' }"
                         />
                         <!-- Tooltip -->
